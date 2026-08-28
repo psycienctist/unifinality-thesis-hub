@@ -5,7 +5,9 @@
 - [ ] Add topic and document-type filters.
 - [ ] Add citations and a references layer for physics, neuroscience, and ethics materials.
 - [ ] Build an interactive Recognition Loop architecture map.
-- [ ] Validate desktop and mobile behavior, archive links, and public deployment.
+- [x] Add smooth Recognition Loop hover, focus, and active-step transitions.
+- [x] Respect prefers-reduced-motion for all new Recognition Loop motion.
+- [x] Validate desktop and mobile behavior, archive links, and public deployment.
 - [ ] Save a final checkpoint and publish the updated site.
 
 ## Scope note

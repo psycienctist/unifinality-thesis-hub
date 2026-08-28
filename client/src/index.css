@@ -269,3 +269,18 @@ a { color: inherit; text-decoration: none; }
   .document-type select { width: 100%; }
   .topic-filters { grid-column: auto; }
 }
+
+/* Recognition Loop motion — calm, low-amplitude feedback that makes relation legible without spectacle. */
+@keyframes loop-flow { to { stroke-dashoffset: -28; } }
+@keyframes step-reveal { from { opacity: .35; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+.loop-path-primary { stroke-dasharray: 2 8; animation: loop-flow 4.8s linear infinite; }
+.loop-path-secondary { opacity: .42; animation: loop-flow 8s linear infinite reverse; }
+.map-node { transition: transform .24s cubic-bezier(.23,1,.32,1); transform-box: fill-box; transform-origin: center; }
+.map-node circle { transition: fill .24s cubic-bezier(.23,1,.32,1), stroke .24s cubic-bezier(.23,1,.32,1), r .24s cubic-bezier(.23,1,.32,1); }
+.map-node:hover, .map-node:focus-visible, .map-node.active { transform: scale(1.08); }
+.map-node:hover circle, .map-node:focus-visible circle, .map-node.active circle { r: 29; }
+.map-detail-note { animation: step-reveal .28s cubic-bezier(.23,1,.32,1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .loop-path-primary, .loop-path-secondary { animation: none; }
+  .map-node, .map-node circle, .map-detail-note { animation: none; transition: none; }
+}
