@@ -1,6 +1,6 @@
 /* Observatory Index — a serious, hospitable research atlas: the thesis is foregrounded alongside its limits, objections, ethics, and primary project archive. */
-import { useMemo, useState } from "react";
-import { ArrowDownRight, ExternalLink } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowDownRight, ExternalLink, Search } from "lucide-react";
 
 type Artifact = {
   kind: "Foundations" | "Physics & consciousness" | "Ethics & governance" | "Seminar & workshop" | "Recognition Loop";
@@ -8,6 +8,28 @@ type Artifact = {
   summary: string;
   href: string;
 };
+
+type DocumentType = "All document types" | "Briefing" | "Essay" | "Specification" | "Script" | "Questionnaire" | "Research notes" | "PDF";
+
+const documentTypes: DocumentType[] = ["All document types", "Briefing", "Essay", "Specification", "Script", "Questionnaire", "Research notes", "PDF"];
+
+function documentTypeFor(title: string): Exclude<DocumentType, "All document types"> {
+  if (title.includes("Script") || title.includes("Presentation")) return "Script";
+  if (title.includes("Questionnaire")) return "Questionnaire";
+  if (title.includes("Specification") || title.includes("Checklist")) return "Specification";
+  if (title.includes("Critique") || title.includes("Counterarguments") || title.includes("Non-Domination") || title.includes("Response")) return "Essay";
+  if (title.includes("Research")) return "Research notes";
+  return "Briefing";
+}
+
+const mapNodes = [
+  { id: "recognize", label: "Recognize", detail: "Name the perspective, request, uncertainty, and relevant context before acting." },
+  { id: "clarify", label: "Clarify", detail: "Separate observation from inference; surface ambiguity, stakes, and the boundaries of authority." },
+  { id: "consent", label: "Consent", detail: "Confirm that the proposed action is permitted, understandable, and reversible for the affected parties." },
+  { id: "act", label: "Act", detail: "Proceed only within explicit authority, with a visible record of the decision and its limits." },
+  { id: "repair", label: "Repair", detail: "If a boundary fails, acknowledge what happened, correct it where possible, and preserve recourse." },
+  { id: "release", label: "Release", detail: "Offer a low-friction pause, handoff, revocation, or exit without emotional punishment." },
+] as const;
 
 const artifacts: Artifact[] = [
   { kind: "Foundations", title: "Executive Summary for Academic Review", summary: "A concise formulation of the thesis, its scope, and the questions it asks a reviewer to examine.", href: "./library/Unifinality_Executive_Summary_for_Academic_Review.md" },
@@ -36,11 +58,36 @@ const filters = ["All", "Foundations", "Physics & consciousness", "Ethics & gove
 
 export default function Home() {
   const [activeFilter, setActiveFilter] = useState<(typeof filters)[number]>("All");
+  const [activeDocumentType, setActiveDocumentType] = useState<DocumentType>("All document types");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [fullText, setFullText] = useState<Record<string, string>>({});
+  const [activeMapNode, setActiveMapNode] = useState<(typeof mapNodes)[number]["id"]>("recognize");
   const assetUrl = (filename: string) => `https://raw.githubusercontent.com/psycienctist/unifinality-thesis-hub/b709d0d/client/public/assets/${filename}`;
-  const visibleArtifacts = useMemo(
-    () => activeFilter === "All" ? artifacts : artifacts.filter((artifact) => artifact.kind === activeFilter),
-    [activeFilter],
-  );
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all(artifacts.map(async (artifact) => {
+      try {
+        const response = await fetch(artifact.href);
+        return [artifact.href, await response.text()] as const;
+      } catch {
+        return [artifact.href, ""] as const;
+      }
+    })).then((entries) => {
+      if (!cancelled) setFullText(Object.fromEntries(entries));
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const visibleArtifacts = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    return artifacts.filter((artifact) => {
+      const matchesTopic = activeFilter === "All" || artifact.kind === activeFilter;
+      const matchesType = activeDocumentType === "All document types" || documentTypeFor(artifact.title) === activeDocumentType;
+      const haystack = `${artifact.kind} ${artifact.title} ${artifact.summary} ${fullText[artifact.href] ?? ""}`.toLowerCase();
+      return matchesTopic && matchesType && (!normalizedQuery || haystack.includes(normalizedQuery));
+    });
+  }, [activeFilter, activeDocumentType, fullText, searchQuery]);
 
   return (
     <div className="site-shell">
@@ -120,12 +167,19 @@ export default function Home() {
 
               <div id="map" className="section diagram-section">
                 <div className="diagram-grid">
-                  <div className="relation-map" aria-label="Conceptual diagram showing a shared ground with distinct perspectives in relation">
-                    <span className="relation-line" />
-                    <div className="relation-mark"><span className="meta">ONE GROUND<br />MANY VIEWS</span></div>
+                  <div className="loop-map-panel">
+                    <div className="loop-map" role="img" aria-label="Interactive Recognition Loop architecture map">
+                      <svg viewBox="0 0 520 300" aria-hidden="true">
+                        <path className="loop-path" d="M260 43 C420 43 475 111 449 188 C425 259 350 276 260 267 C170 276 95 259 71 188 C45 111 100 43 260 43" />
+                        <path className="loop-path loop-path-secondary" d="M260 43 C100 43 45 111 71 188 C95 259 170 276 260 267" />
+                        {mapNodes.map((node, index) => { const positions = [[260, 38], [410, 100], [407, 218], [260, 267], [112, 218], [110, 100]][index]; return <g key={node.id} className={`map-node ${activeMapNode === node.id ? "active" : ""}`} role="button" tabIndex={0} onClick={() => setActiveMapNode(node.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setActiveMapNode(node.id); }} aria-label={`Show ${node.label} step`} aria-pressed={activeMapNode === node.id}><circle cx={positions[0]} cy={positions[1]} r="27" /><text x={positions[0]} y={positions[1] - 3} textAnchor="middle">{String(index + 1).padStart(2, "0")}</text><text className="map-node-label" x={positions[0]} y={positions[1] + 45} textAnchor="middle">{node.label}</text></g>; })}
+                        <g className="map-center"><circle cx="260" cy="150" r="61" /><text x="260" y="143" textAnchor="middle" className="map-center-kicker">RECOGNITION</text><text x="260" y="160" textAnchor="middle" className="map-center-kicker">LOOP</text><text x="260" y="181" textAnchor="middle" className="map-center-label">relational accountability</text></g>
+                      </svg>
+                    </div>
+                    <div className="map-detail"><p className="eyebrow">02 / Recognition Loop architecture</p><h3>Relation becomes a protocol.</h3><p>The loop turns the thesis’s ethical intuition into an inspectable sequence. Choose a node to see the operative question at that point in the cycle.</p><div className="map-detail-note"><span className="meta">ACTIVE STEP / {mapNodes.find((node) => node.id === activeMapNode)?.label.toUpperCase()}</span><p>{mapNodes.find((node) => node.id === activeMapNode)?.detail}</p></div><a href="./library/Recognition_Loop_Multi_Agent_Architecture_Specification.md" target="_blank" rel="noreferrer">Read the full architecture specification <ArrowDownRight size={15} /></a></div>
                   </div>
                   <div className="diagram-copy">
-                    <p className="eyebrow">02 / The relation</p>
+                    <p className="eyebrow">Relation as infrastructure</p>
                     <h3>No final separation is not no separation.</h3>
                     <p>Unifinality holds two statements together: there is no final metaphysical isolation, and local boundaries still matter profoundly. The first resists a worldview of absolutely independent fragments. The second prevents unity from becoming coercive fusion.</p>
                     <p className="boundary">A boundary is not evidence against relation. It is where relation becomes specific enough to demand consent, care, accountability, and the possibility of saying no.</p>
@@ -140,10 +194,11 @@ export default function Home() {
                 </div>
                 <div className="evidence-wrap">
                   <div className="evidence-copy">
-                    <p><strong>Quantum entanglement</strong> challenges simple pictures in which spatially separated systems always possess wholly independent local descriptions. It may make relational metaphysics philosophically interesting. But entanglement does not, by itself, establish consciousness, cosmic mind, human interconnectedness, or Unifinality.</p>
-                    <p><strong>Observer-related interpretations</strong> raise difficult questions about measurement, information, and the status of observation. They do not demonstrate that a human mind collapses the wave function, nor do they validate any single metaphysical system. The project’s physics work is explicit about this distinction.</p>
-                    <p><strong>Neuroscience</strong> demonstrates rich dependencies between brains, bodies, environments, and conscious report. It provides indispensable constraints on any adequate account of experience. It does not yet deliver a consensus answer to why physical processes are accompanied by subjective presence.</p>
-                    <p>For Unifinality to mature beyond a productive metaphysical research program, it must keep specifying where it is interpretive, where it generates comparative explanatory value, and where it might lead to constraints, models, or tests that are not already guaranteed by the premise.</p>
+                    <p className="evidence-paragraph"><strong>Quantum entanglement</strong> challenges simple pictures in which spatially separated systems always possess wholly independent local descriptions. It may make relational metaphysics philosophically interesting. But entanglement does not, by itself, establish consciousness, cosmic mind, human interconnectedness, or Unifinality. <a className="citation" href="https://www.nist.gov/quantum-information-science" target="_blank" rel="noreferrer">[1]</a></p>
+                    <p className="evidence-paragraph"><strong>Observer-related interpretations</strong> raise difficult questions about measurement, information, and the status of observation. They do not demonstrate that a human mind collapses the wave function, nor do they validate any single metaphysical system. The project’s physics work is explicit about this distinction. <a className="citation" href="https://plato.stanford.edu/entries/qt-interpretation/" target="_blank" rel="noreferrer">[2]</a></p>
+                    <p className="evidence-paragraph"><strong>Neuroscience</strong> demonstrates rich dependencies between brains, bodies, environments, and conscious report. It provides indispensable constraints on any adequate account of experience. It does not yet deliver a consensus answer to why physical processes are accompanied by subjective presence. <a className="citation" href="https://plato.stanford.edu/entries/consciousness-neuroscience/" target="_blank" rel="noreferrer">[3]</a></p>
+                    <p className="evidence-paragraph">For Unifinality to mature beyond a productive metaphysical research program, it must keep specifying where it is interpretive, where it generates comparative explanatory value, and where it might lead to constraints, models, or tests that are not already guaranteed by the premise.</p>
+                    <div className="references" id="references"><p className="nav-label">References / evidence layer</p><p><span>[1]</span> NIST, <em>Quantum information science</em> — measurement science, quantum effects, and information theory.</p><p><span>[2]</span> Stanford Encyclopedia of Philosophy, <em>Interpretations of Quantum Mechanics</em> — interpretive plurality and measurement questions.</p><p><span>[3]</span> Stanford Encyclopedia of Philosophy, <em>The Neuroscience of Consciousness</em> — neural correlates, explanatory sufficiency, methods, and the explanatory gap.</p><p><span>[4]</span> NIST, <em>AI Risk Management Framework</em> — voluntary, consensus-driven risk management for trustworthy and responsible AI.</p></div>
                   </div>
                   <aside className="epistemic-box"><h3>Epistemic boundary</h3><p>This observatory does not present quantum mechanics or neuroscience as proof of Unifinality. The project treats them as sources of constraint, challenge, and possible conceptual convergence—never as rhetorical shortcuts.</p></aside>
                 </div>
@@ -171,7 +226,7 @@ export default function Home() {
           <aside className="index-rail"><nav aria-label="Ethics index"><p className="nav-label">Ethics & practice</p><a className="rail-link" href="#ethics"><span>05</span> Non-domination</a><a className="rail-link" href="#protocol"><span>06</span> Recognition Loop</a><a className="rail-link" href="#archive"><span>07</span> Governance archive</a></nav></aside>
           <div className="content-column">
             <div className="section">
-              <div className="section-heading"><div><p className="eyebrow">05 / Ethical consequences</p><h2 id="ethics-title" className="display">If relation is real, restraint is not optional.</h2></div><p className="section-intro">Unifinality’s ethical test is demanding: no appeal to unity may weaken another perspective’s right to privacy, refusal, exit, or repair.</p></div>
+              <div className="section-heading"><div><p className="eyebrow">05 / Ethical consequences</p><h2 id="ethics-title" className="display">If relation is real, restraint is not optional.</h2></div><p className="section-intro">Unifinality’s ethical test is demanding: no appeal to unity may weaken another perspective’s right to privacy, refusal, exit, or repair. The framework is presented as a design ethic that can be compared with established risk-management practice, not as a replacement for it. <a className="citation" href="https://www.nist.gov/itl/ai-risk-management-framework" target="_blank" rel="noreferrer">[4]</a></p></div>
               <div className="ethics-layout">
                 <div className="ethics-photo" style={{ backgroundImage: `url(${assetUrl("unifinality-relation-study.jpg")})` }} aria-label="Abstract study of one connecting line between separate circular traces" />
                 <div><div className="principles">
@@ -196,8 +251,11 @@ export default function Home() {
         <section id="archive" className="archive" aria-labelledby="archive-title">
           <div className="section">
             <div className="archive-heading"><div><p className="eyebrow">07 / Public working archive</p><h2 id="archive-title" className="display">The full record of the inquiry.</h2></div><p className="section-intro">Every item below is a public working document or publication asset from this project. The archive preserves both the affirmative case and the scrutiny required to improve it.</p></div>
-            <div className="archive-tools" aria-label="Filter the document archive">
-              {filters.map((filter) => <button key={filter} className={`filter ${activeFilter === filter ? "active" : ""}`} onClick={() => setActiveFilter(filter)} aria-pressed={activeFilter === filter}>{filter}</button>)}
+            <div className="archive-tools" aria-label="Search and filter the document archive">
+              <label className="archive-search"><Search size={17} aria-hidden="true" /><span className="sr-only">Search the research archive</span><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search titles, summaries, and full text" /></label>
+              <label className="document-type"><span className="sr-only">Filter by document type</span><select value={activeDocumentType} onChange={(event) => setActiveDocumentType(event.target.value as DocumentType)}>{documentTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
+              <div className="topic-filters" aria-label="Filter by topic">{filters.map((filter) => <button key={filter} className={`filter ${activeFilter === filter ? "active" : ""}`} onClick={() => setActiveFilter(filter)} aria-pressed={activeFilter === filter}>{filter}</button>)}</div>
+              <p className="archive-count">{visibleArtifacts.length} of {artifacts.length} records</p>
             </div>
             <div className="archive-ledger">
               {visibleArtifacts.map((artifact) => <a className="archive-row" key={artifact.title} href={artifact.href} target="_blank" rel="noreferrer"><span className="archive-kind">{artifact.kind}</span><h3>{artifact.title}</h3><p>{artifact.summary}</p><ExternalLink className="arrow" size={18} strokeWidth={1.5} aria-hidden="true" /></a>)}
