@@ -36,7 +36,7 @@ const filters = ["All", "Foundations", "Physics & consciousness", "Ethics & gove
 
 export default function Home() {
   const [activeFilter, setActiveFilter] = useState<(typeof filters)[number]>("All");
-  const assetUrl = (filename: string) => `${import.meta.env.BASE_URL}assets/${filename}`;
+  const assetUrl = (filename: string) => `https://raw.githubusercontent.com/psycienctist/unifinality-thesis-hub/b709d0d/client/public/assets/${filename}`;
   const visibleArtifacts = useMemo(
     () => activeFilter === "All" ? artifacts : artifacts.filter((artifact) => artifact.kind === activeFilter),
     [activeFilter],
